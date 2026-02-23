@@ -6,4 +6,4 @@ Parts used;
 - ESP32-S3
 - PCM5102A Dac
 
-<img width="2180" height="1438" alt="image" src="https://github.com/user-attachments/assets/a8508d2f-1fcd-4d21-9b0c-e6b8900609da" />
+<img width="1618" height="1065" alt="image" src="https://github.com/user-attachments/assets/c5ebd069-831b-4c5f-ad44-b46ec15c6c17" />
