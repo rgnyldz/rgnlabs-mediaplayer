@@ -1,92 +1,152 @@
 esphome:
   name: entrance-media-player-v2
-  friendly_name: Entrance Media Player (V2)
+  friendly_name: "Entrance Media Player (V2)"
 
 esp32:
   board: esp32-s3-devkitc-1
+  flash_size: 16MB
   framework:
     type: esp-idf
+    version: 5.5.4
 
-# Enable logging
 logger:
 
-# Enable Home Assistant API
 api:
   encryption:
-    key: "8WFn4q9ra1FQgOlBHFbYfm9ykDMT1ZAFsKFSvRbUiaI="
+    key: "XXXXXX"
 
 ota:
   - platform: esphome
-    password: "09206a40a5023c02404931f54e677940"
+    password: "XXXXXX"
 
 wifi:
   networks:
   - ssid: !secret wifi_ssid
     password: !secret wifi_password
-  # manual_ip:
-  #   static_ip: 192.168.2.129
-  #   gateway: 192.168.2.1
-  #   subnet: 255.255.255.0
-
-  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  manual_ip:
+    static_ip: 192.168.2.45
+    gateway: 192.168.2.1
+    subnet: 255.255.255.0
   ap:
     ssid: "Entrance-Media-Player-V2"
-    password: "yGXtWelob40i"
+    password: "XXXXXX"
 
 captive_portal:
-    
+
 psram:
   mode: octal
   speed: 80MHz
-
+  
+sendspin:
+  task_stack_in_psram: true
+  
 i2s_audio:
-  - id: i2s_bus
+  - id: i2s_output
     i2s_lrclk_pin: GPIO7
     i2s_bclk_pin: GPIO6
 
+uart:
+  - rx_pin: 15
+    baud_rate: 9600
+    id: dummy_uart
+  
+  - tx_pin: GPIO17
+    rx_pin: GPIO18
+    baud_rate: 115200
+    parity: NONE
+    stop_bits: 1
+    id: ld2420_uart
+  
 speaker:
   - platform: i2s_audio
-    id: i2s_audio_speaker
-    i2s_audio_id: i2s_bus
+    id: speaker_id
     dac_type: external
     i2s_dout_pin: GPIO5
-    sample_rate: 44100
-    buffer_duration: 1000ms
-    bits_per_sample: 16bit
-
+    sample_rate: 48000
   - platform: mixer
-    id: mixing_speaker
-    output_speaker: i2s_audio_speaker
-    num_channels: 2
+    id: mixer_speaker_id
+    output_speaker: speaker_id
     source_speakers:
-      - id: announcement_mixing_input
-      - id: media_mixing_input
-
+      - id: announcement_spk_mixer_input
+      - id: media_spk_mixer_input
   - platform: resampler
-    id: announcement_resampling_speaker
-    output_speaker: announcement_mixing_input
-    sample_rate: 44100
-  
+    id: media_spk_resampling_input
+    output_speaker: media_spk_mixer_input
   - platform: resampler
-    id: media_resampling_speaker
-    output_speaker: media_mixing_input
-    sample_rate: 44100
+    id: announcement_spk_resampling_input
+    output_speaker: announcement_spk_mixer_input
 
+media_source:
+  - platform: audio_http
+    id: http_source_media
+  - platform: audio_http
+    id: http_source_announcement
+  - platform: sendspin
+    id: sendspin_source
+    
 media_player:
-  - platform: speaker
-    id: external_media_player
-    name: None
-    internal: False
-    volume_min: 0.4
-    volume_max: 0.95
-    volume_increment: 0.15
-    announcement_pipeline:
-      speaker: announcement_resampling_speaker
-      format: FLAC
-      num_channels: 1 
-      sample_rate: 44100
+  - platform: sendspin
+    id: sendspin_group_media_player
+  - platform: speaker_source
+    name: "Speaker Media Player"
+    id: speaker_media_player_id
     media_pipeline:
-      speaker: media_resampling_speaker
-      format: FLAC 
+      speaker: media_spk_resampling_input
       num_channels: 2
-      sample_rate: 44100
+      sources:
+        - sendspin_source
+        - http_source_media
+    announcement_pipeline:
+      speaker: announcement_spk_resampling_input
+      num_channels: 1
+      sources:
+        - http_source_announcement
+
+ld2420:
+  uart_id: ld2420_uart
+
+text_sensor:
+  - platform: ld2420
+    fw_version:
+      name: LD2420 Firmware
+
+sensor:
+  - platform: ld2420
+    moving_distance:
+      name : Moving Distance
+
+binary_sensor:
+  - platform: ld2420
+    has_target:
+      name: Presence
+
+select:
+  - platform: ld2420
+    operating_mode:
+      name: Operating Mode
+
+number:
+  - platform: ld2420
+    presence_timeout:
+      name: Detection Presence Timeout
+    min_gate_distance:
+      name: Detection Gate Minimum
+    max_gate_distance:
+      name: Detection Gate Maximum
+    gate_select:
+      name: Select Gate to Set
+    still_threshold:
+      name: Set Still Threshold Value
+    move_threshold:
+      name: Set Move Threshold Value
+
+button:
+  - platform: ld2420
+    apply_config:
+      name: Apply Config
+    factory_reset:
+      name: Factory Reset
+    restart_module:
+      name: Restart Module
+    revert_config:
+      name: Undo Edits
